@@ -1,0 +1,59 @@
+# Copyright 2024 Google LLC
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     https://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+go_library(
+    name = "reportprogress",
+    importpath = "github.com/google/open_sztp/handlers/reportprogress",
+    srcs = ["report_progress.go"],
+    deps = [
+        "//util:parser",
+        "@com_github_kylelemons_godebug//pretty",
+    ],
+)
+
+go_library(
+    name = "bootstrapdata",
+    importpath = "github.com/google/open_sztp/handlers/bootstrapdata",
+    srcs = ["bootstrap_data.go"],
+    deps = [
+        "//util:constants",
+        "//util:parser",
+        "@com_github_kylelemons_godebug//pretty",
+        "@org_mozilla_go_pkcs7//:pkcs7",
+    ],
+)
+
+go_library(
+    name = "issueaikcert",
+    importpath = "github.com/google/open_sztp/handlers/issueaikcert",
+    srcs = ["issue_aik_cert.go"],
+    deps = [
+        "//proto:tpm_enrollment_go_proto",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_library(
+    name = "verifyattestationcredential",
+    importpath = "github.com/google/open_sztp/handlers/verifyattestationcredential",
+    srcs = ["verify_attestation_credential.go"],
+    deps = [
+        "//proto:tpm_enrollment_go_proto",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)

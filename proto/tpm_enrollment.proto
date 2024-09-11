@@ -1,0 +1,102 @@
+// Copyright 2024 Google LLC
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//     https://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package open_sztp;
+
+option java_multiple_files = true;
+option go_package = "github.com/google/open_sztp/proto";
+
+message DeviceIdentifier {
+  // Serial number of the device specified by the switch vendor.
+  // Required.
+  string device_serial_number = 1
+      ; // Can't be empty
+
+  // Manufacturer of the device specified by the switch vendor.
+  // Required.
+  string device_manufacturer = 2
+      ; // Can't be empty
+
+  // Model of the device specified by the switch vendor.
+  // Required.
+  string device_model = 3 ; // Can't be empty
+}
+
+message IssueAikCertRequest {
+  // A unique device identifier which we can use to look up device's
+  // corresponding public Endorsement Key.
+  // Required.
+  DeviceIdentifier device_id = 1 ; // Required
+
+  // Identity request base64-encoded blob produced by the
+  // Tspi_TPM_CollateIdentityRequest API of the TCG Software Stack (TSS) on the
+  // device.
+  // Required.
+  string tss_identity_request = 2
+      ; // Can't be empty
+
+  // ID of a given TPM enrollment session that ties together all of the APIs and
+  // associated data within that TPM enrollment workflow.
+  // Required.
+  string tpm_enrollment_session_id = 3
+      ; // Can't be empty
+}
+
+message IssueAikCertResponse {
+  // Challenge encrypted with a symmetric data encryption key. This
+  // base64-encoded blob will be provided as the "symmetric CA Attestation Blob"
+  // argument of Tspi_TPM_ActivateIdentity TSS API on the device.
+  string enc_challenge = 1;
+
+  // Symmetric data encryption key encrypted with an asymmetric EK pub key. This
+  // base64-encoded blob will be provided as the "asymmetric CA Contents Blob"
+  // argument of Tspi_TPM_ActivateIdentity TSS API on the device.
+  string enc_data_encryption_key = 2;
+}
+
+message VerifyAttestationCredentialRequest {
+  // A unique device identifier.
+  // Required.
+  DeviceIdentifier device_id = 1 ; // Required
+
+  // Decrypted credential to be verified. This base64-encoded credential is the
+  // output of the Tspi_TPM_ActivateIdentity TSS API on the device.
+  // Required.
+  string credential = 2 ; // Can't be empty
+
+  // ID of a given TPM enrollment session that ties together all of the APIs and
+  // associated data within that TPM enrollment workflow.
+  // Required.
+  string tpm_enrollment_session_id = 3
+      ; // Can't be empty
+}
+
+message VerifyAttestationCredentialResponse {
+  // Plaintext PEM-encoded attestation identity key certificate.
+  string aik_cert = 1;
+}
+
+// Service responsible for hosting APIs needed to drive AIK Certificate
+// Issuance.
+service TpmEnroller {
+  // Request to issue an attestation identity key certificate for a given
+  // device.
+  rpc IssueAikCert(IssueAikCertRequest) returns (IssueAikCertResponse);
+
+  // Verify the attestation credential presented by the device.
+  rpc VerifyAttestationCredential(VerifyAttestationCredentialRequest)
+      returns (VerifyAttestationCredentialResponse);
+}

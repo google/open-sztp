@@ -1,0 +1,5 @@
+# proto-file: proto/tpm_enrollment.proto
+# proto-message: IssueAikCertResponse
+
+enc_challenge: "enc-challenge"
+enc_data_encryption_key: "enc-data-encryption-key"
