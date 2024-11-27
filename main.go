@@ -28,7 +28,7 @@ import (
 
 func main() {
 	servingIP := flag.String("ip", "::1", "IP address that this server should listen on (default: ::1)")
-	servingPort := flag.Int("port", 443, "Port that this server should listen on (default: 443)")
+	servingPort := flag.Int("port", 12345, "Port that this server should listen on (default: 12345)")
 	flag.Parse()
 	if *servingIP == "" {
 		log.Fatalf("--ip flag must be provided")
