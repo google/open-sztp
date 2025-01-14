@@ -29,7 +29,7 @@ import (
 
 // DependencyProvider is the interface to get the dependencies for the verify attestation credential handler.
 type DependencyProvider interface {
-	VerifyAttestationCredential(ctx context.Context, req *tepb.VerifyAttestationCredentialRequest) (*tepb.VerifyAttestationCredentialResponse, error)
+	VerifyAttestationCredential(ctx context.Context, req *tepb.VerifyAttestationCredentialRequest, httpReq *http.Request) (*tepb.VerifyAttestationCredentialResponse, error)
 	LogInfof(format string, v ...any)
 	LogErrorf(format string, v ...any)
 }
@@ -61,7 +61,7 @@ func (h Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Route the call to the underlying Bootstrap Server backend.
-	protoResponse, err := h.DependencyProvider.VerifyAttestationCredential(req.Context(), protoRequest)
+	protoResponse, err := h.DependencyProvider.VerifyAttestationCredential(req.Context(), protoRequest, req)
 	if err != nil {
 		respondWithError(w, h.DependencyProvider, http.StatusInternalServerError, fmt.Errorf("verify-attestation-credential RPC error: %w", err))
 		return

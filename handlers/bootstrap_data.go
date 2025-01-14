@@ -36,21 +36,21 @@ import (
 // ImageVerification contains the hash algorithm and hash value of an image.
 // Used as a part of OnboardingData.
 type ImageVerification struct {
-	HashAlgorithm string
-	HashValue     string
+	HashAlgorithm string `json:"hash-algorithm"`
+	HashValue     string `json:"hash-value"`
 }
 
 // OnboardingData encodes the information necessary to populate the sZTP conveyed information for
 // the trusted phase of sZTP.
 type OnboardingData struct {
-	OSName             string
-	OSVersion          string
-	DownloadURIs       []string
-	ImageVerifications []ImageVerification
-	ConfigHandling     string
-	PreConfigScript    []byte
-	Config             []byte
-	PostConfigScript   []byte
+	OSName             string              `json:"os-name"`
+	OSVersion          string              `json:"os-version"`
+	DownloadURIs       []string            `json:"download-uris"`
+	ImageVerifications []ImageVerification `json:"image-verifications"`
+	ConfigHandling     string              `json:"configuration-handling"`
+	PreConfigScript    []byte              `json:"pre-config-script"`
+	Config             []byte              `json:"config"`
+	PostConfigScript   []byte              `json:"post-config-script"`
 }
 
 // DependencyProvider abstracts the dependencies of the bootstrap server and returns the values to populate in the sZTP response.

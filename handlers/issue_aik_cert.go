@@ -29,7 +29,7 @@ import (
 
 // DependencyProvider is the interface to get the dependencies for the issue AIK certificate handler.
 type DependencyProvider interface {
-	IssueAIKCert(ctx context.Context, req *tepb.IssueAikCertRequest) (*tepb.IssueAikCertResponse, error)
+	IssueAIKCert(ctx context.Context, req *tepb.IssueAikCertRequest, httpReq *http.Request) (*tepb.IssueAikCertResponse, error)
 	LogInfof(format string, v ...any)
 	LogErrorf(format string, v ...any)
 }
@@ -61,7 +61,7 @@ func (h Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Route the call to the underlying Bootstrap Server backend.
-	protoIssueAikCertResponse, err := h.DependencyProvider.IssueAIKCert(req.Context(), protoIssueAikCertRequest)
+	protoIssueAikCertResponse, err := h.DependencyProvider.IssueAIKCert(req.Context(), protoIssueAikCertRequest, req)
 	if err != nil {
 		respondWithError(w, h.DependencyProvider, http.StatusInternalServerError, fmt.Errorf("issue-aik-cert RPC failure: %w", err))
 		return

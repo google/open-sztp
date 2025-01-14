@@ -35,6 +35,7 @@ import (
 
 	"github.com/google/open_sztp/handlers/bootstrapdata"
 	tepb "github.com/google/open_sztp/proto/tpm_enrollment_go_proto"
+	"github.com/google/open_sztp/util/data"
 	"github.com/google/open_sztp/util/parser"
 	"golang.org/x/sys/unix"
 )
@@ -42,46 +43,49 @@ import (
 // Provider implements the DependencyProvider interface and returns the provided values for sZTP fields.
 // Provided for the open source implementation.
 type Provider struct {
-	StubOwnershipCertificate                *x509.Certificate
-	StubOwnershipCertificatePrivateKey      crypto.PrivateKey
-	StubTrustAnchorCertificate              *x509.Certificate
-	StubTrustAnchorCertificatePrivateKey    crypto.PrivateKey
-	StubOwnershipVoucher                    string
-	StubRedirectIP                          string
-	StubRedirectPort                        int
-	StubOnboardingData                      bootstrapdata.OnboardingData
-	StubIssueAIKCertResponse                *tepb.IssueAikCertResponse
-	StubVerifyAttestationCredentialResponse *tepb.VerifyAttestationCredentialResponse
+	// SerialNumberHeader is the HTTP header of sZTP requests that the Serial Number should be read
+	SerialNumberHeader string
+	StubRedirectIP     string
+	StubRedirectPort   int
+	DataReader         data.Reader
 }
 
 // OwnershipCert returns the sZTP ownership certificate used to sign the conveyed information in the sZTP response.
 // The certificate is in PEM format.
 func (p Provider) OwnershipCert(context.Context) (*x509.Certificate, error) {
-	return p.StubOwnershipCertificate, nil
+	cert, _, err := p.DataReader.ReadOwnershipCertificate()
+	return cert, err
 }
 
 // OwnershipCertPrivateKey returns the private key for the sZTP ownership certificate.
 // The private key is in PEM format.
 func (p Provider) OwnershipCertPrivateKey(context.Context) (crypto.PrivateKey, error) {
-	return p.StubOwnershipCertificatePrivateKey, nil
+	_, privKey, err := p.DataReader.ReadOwnershipCertificate()
+	return privKey, err
 }
 
 // TrustAnchorCert returns the trust anchor certificate used to sign the trust anchor CMS in the sZTP response.
 // The certificate is in PEM format.
 func (p Provider) TrustAnchorCert(context.Context) (*x509.Certificate, error) {
-	return p.StubTrustAnchorCertificate, nil
+	cert, _, err := p.DataReader.ReadTrustAnchor()
+	return cert, err
 }
 
 // TrustAnchorPrivateKey returns the private key for the trust anchor certificate.
 // The private key is in PEM format.
 func (p Provider) TrustAnchorPrivateKey(context.Context) (crypto.PrivateKey, error) {
-	return p.StubTrustAnchorCertificatePrivateKey, nil
+	_, privKey, err := p.DataReader.ReadTrustAnchor()
+	return privKey, err
 }
 
 // OwnershipVoucher returns the ownership voucher for the device.
 // The OV is returned as a base64 encoded ASN.1 DER certificate.
-func (p Provider) OwnershipVoucher(context.Context, *http.Request, parser.RESTCONFArgs) (string, error) {
-	return p.StubOwnershipVoucher, nil
+func (p Provider) OwnershipVoucher(ctx context.Context, req *http.Request, args parser.RESTCONFArgs) (string, error) {
+	serialNumber := req.Header.Get(p.SerialNumberHeader)
+	if serialNumber == "" {
+		return "", fmt.Errorf("Serial Number not present in HTTP header %q", p.SerialNumberHeader)
+	}
+	return p.DataReader.ReadOwnershipVoucher(serialNumber)
 }
 
 // RedirectIP returns the IP address of the bootstrap server that the device should redirect
@@ -98,25 +102,40 @@ func (p Provider) RedirectPort() int {
 
 // OnboardingInformation returns the boot image and config to return to the to populate the
 // sZTP conveyed information for the trusted phase of sZTP.
-func (p Provider) OnboardingInformation(context.Context, *http.Request, parser.RESTCONFArgs) (bootstrapdata.OnboardingData, error) {
-	return p.StubOnboardingData, nil
+func (p Provider) OnboardingInformation(ctx context.Context, req *http.Request, args parser.RESTCONFArgs) (bootstrapdata.OnboardingData, error) {
+	serialNumber := req.Header.Get(p.SerialNumberHeader)
+	if serialNumber == "" {
+		return bootstrapdata.OnboardingData{}, fmt.Errorf("Serial Number not present in HTTP header %q", p.SerialNumberHeader)
+	}
+	return p.DataReader.ReadOnboardingData(serialNumber)
 }
 
 // ReportProgress sends the contents of the report-progress message upstream for processing.
-func (p Provider) ReportProgress(context.Context, *http.Request, *parser.ReportProgressRequest) error {
+func (p Provider) ReportProgress(ctx context.Context, req *http.Request, progressReq *parser.ReportProgressRequest) error {
+	p.LogInfof("Received report-progress request: %v", *progressReq)
 	return nil
 }
 
 // IssueAIKCert returns a challenge and an encryption key to be used as the
 // symmetric CA Attestation Blob and asymmetric CA Contents Blob in the TPM
 // ActivateIdentity TSS API on the device.
-func (p Provider) IssueAIKCert(context.Context, *tepb.IssueAikCertRequest) (*tepb.IssueAikCertResponse, error) {
-	return p.StubIssueAIKCertResponse, nil
+func (p Provider) IssueAIKCert(ctx context.Context, protoReq *tepb.IssueAikCertRequest, httpReq *http.Request) (*tepb.IssueAikCertResponse, error) {
+	serialNumber := httpReq.Header.Get(p.SerialNumberHeader)
+	if serialNumber == "" {
+		return nil, fmt.Errorf("Serial Number not present in HTTP header %q", p.SerialNumberHeader)
+	}
+	resp, _, err := p.DataReader.ReadTPMResponses(serialNumber)
+	return resp, err
 }
 
 // VerifyAttestationCredential returns the attestation identity key cert.
-func (p Provider) VerifyAttestationCredential(context.Context, *tepb.VerifyAttestationCredentialRequest) (*tepb.VerifyAttestationCredentialResponse, error) {
-	return p.StubVerifyAttestationCredentialResponse, nil
+func (p Provider) VerifyAttestationCredential(ctx context.Context, protoReq *tepb.VerifyAttestationCredentialRequest, httpReq *http.Request) (*tepb.VerifyAttestationCredentialResponse, error) {
+	serialNumber := httpReq.Header.Get(p.SerialNumberHeader)
+	if serialNumber == "" {
+		return nil, fmt.Errorf("Serial Number not present in HTTP header %q", p.SerialNumberHeader)
+	}
+	_, resp, err := p.DataReader.ReadTPMResponses(serialNumber)
+	return resp, err
 }
 
 // GenerateServerTLSCertificate generates a TLS cert for the bootstrap server using the trust anchor and IP.

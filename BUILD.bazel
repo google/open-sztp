@@ -41,10 +41,10 @@ go_library(
 go_binary(
     name = "main",
     srcs = ["main.go"],
+    data = glob(["data/**"]),
     deps = [
         ":server",
-        "//handlers:bootstrapdata",
-        "//testdata",
+        "//util:data",
         "//util:stubdependencies",
     ],
 )

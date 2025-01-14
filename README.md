@@ -9,40 +9,141 @@ Open sZTP uses Bazel as the build system to manage dependencies. Visit [Bazel's 
 Once Bazel is installed, you can start up the server with:
 
 ```
-bazel run main -- --ip=::1 --port=12345
+bazel run main -- --ip=::1 --port=12345 --serial_number_header=X-Vendor-Serial
 ```
 
 ## Customizing the behavior of the server
-The Open sZTP server loads its dependencies from the `testdata/` directory. Sample certificates, private keys, config scripts, and ownership vouchers are provided by default, but to use your own values instead, simply replace the contents of the files with your own.
+To respond to sZTP requests, the Open sZTP server requires ownership vouchers, onboarding data, bootstrap config, and other data dependencies. The server expects the device serial number to be provided in each HTTP request header, which it uses to look up the corresponding data dependencies under the `data` directory, with each serial number getting a separate subdirectory with a matching name:
 
-Sample values related to OS images are located in `main.go`:
-
-```go
-...
-// ============= Replace your values here =============
-OSName:       "VendorOS",
-OSVersion:    "v1.0.0",
-DownloadURIs: []string{"http://www.example.com/your/os/image/here.img"},
-ImageVerifications: []bootstrapdata.ImageVerification{
-  bootstrapdata.ImageVerification{
-    HashAlgorithm: "ietf-sztp-conveyed-info:sha-256",
-    HashValue:     "01:23:45:67:89:ab:cd:ef",
-  },
-},
-// ============= Replace your values here =============
-...
 ```
+├── data
+│   ├── 12345
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── 67890
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── ownershipCertificate.pem
+│   ├── ownershipCertificatePrivateKey.pem
+│   ├── trustAnchorCertificate.pem
+│   └── trustAnchorCertificatePrivateKey.pem
+```
+
+As you can see above, sample data dependencies for serial numbers `12345` and `67890` are
+provided already. To add additional devices, simply create a new subdirectory under the `data` directory with the device serial number as the name, and add the corresponding data files. Data files are read at runtime, so the data dependencies for any behaviors you do not wish to test can be omitted.
+
+To specify the name of the HTTP header that provides the serial number, use the `--serial_number_header` flag when starting the server:
+
+```
+bazel run main -- --serial_number_header=X-YourVendorNameHere-Serial
+```
+
+When the server receives a request, it will check the HTTP headers for a header matching `X-YourVendorNameHere-Serial`, then read each data dependency from the folder `data/<serial_number>/`.
+
+### Adding new data dependencies
+The `add_new_device.sh` script is provided for you to add new data dependencies. Passing the serial number of a new device will automatically create a new entry under the `data/` directory, populate it with sample templates for each of the data files, and automatically link them with an actively-running server.
+
+```
+./add_new_device.sh <serial_number>
+```
+
+Example:
+
+```
+# Before running the script
+$ tree data
+├── data
+│   ├── 12345
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── 67890
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── ownershipCertificate.pem
+│   ├── ownershipCertificatePrivateKey.pem
+│   ├── trustAnchorCertificate.pem
+│   └── trustAnchorCertificatePrivateKey.pem
+
+# Running the script
+$ chmod +x add_new_device.sh
+$ ./add_new_device.sh 00000
+Created new template data dependencies for serial number 00000:
+  data/00000/bootstrapConfig.txt
+  data/00000/issueAikCertResponse.textproto
+  data/00000/onboardingData.json
+  data/00000/ownershipVoucher.base64
+  data/00000/postConfigScript.txt
+  data/00000/preConfigScript.txt
+  data/00000/verifyAttestationCredentialResponse.textproto
+Linking new files to the running server's runfiles directory...
+Done.
+Edit the files under data/00000 to customize your new device data.
+
+# After running the script
+$ tree data
+├── data
+│   ├── 12345
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── 67890
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── 00000
+│   │   ├── bootstrapConfig.txt
+│   │   ├── issueAikCertResponse.textproto
+│   │   ├── onboardingData.json
+│   │   ├── ownershipVoucher.base64
+│   │   ├── postConfigScript.txt
+│   │   ├── preConfigScript.txt
+│   │   └── verifyAttestationCredentialResponse.textproto
+│   ├── ownershipCertificate.pem
+│   ├── ownershipCertificatePrivateKey.pem
+│   ├── trustAnchorCertificate.pem
+│   └── trustAnchorCertificatePrivateKey.pem
+```
+
+Note: **If you want to add new devices while the server is currently running without restarting the server, then you must use the `add_new_device.sh` script to create new dependencies**. This is due to the way `bazel run` copies symlinks into a temporary `bazel-bin` folder during execution rather than reading data dependencies from the source folder directly. If you are willing to restart the server for each new device, then you can add new subdirectories under `data/` manually without using the `add_new_device.sh` script.
 
 ## Sample requests and responses
 The following sample requests and responses assume the server has been started with:
 
 ```
-bazel run main -- --ip=::1 --port=12345
+bazel run main -- --ip=::1 --port=12345 --serial_number_header=X-AcmeCorp-Serial
 ```
 
 All of the below `curl` commands were executed from the root directory of the repository (i.e. the one that contains `main.go`)
 
-Note: the sample trust anchor certificate used by the server and provided in `testdata/` is self-signed, so all the example curl commands below use the `--cacert testdata/trustAnchorCertificate.pem` flag to explicitly trust the sample cert used by the server. If you wish to test with without explicitly trusting this cert or without disabling SSL verification (i.e. the `--insecure` flag in `curl`), then you can replace the sample trust anchor certificate and private key with one from a trusted certificate authority of you own, but using the sample certificate is fine for basic testing and development.
+Note: the sample trust anchor certificate used by the server and provided in `data/` is self-signed, so all the example curl commands below use the `--cacert data/trustAnchorCertificate.pem` flag to explicitly trust the sample cert used by the server. If you wish to test with without explicitly trusting this cert or without disabling SSL verification (i.e. the `--insecure` flag in `curl`), then you can replace the sample trust anchor certificate and private key with one from a trusted certificate authority of you own, but using the sample certificate is fine for basic testing and development.
 
 ### Get Bootstrapping Data: Untrusted Phase
 The untrusted phase is the first request sent from the switch after completing DHCP and redirecting to the sZTP server. The goal is for the server to provide the switch with its Ownership Voucher for the switch to validate for correctness.
@@ -50,7 +151,7 @@ The untrusted phase is the first request sent from the switch after completing D
 Full `curl` request sent to server:
 
 ```bash
-curl --cacert testdata/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-Serial: 123456"  -d '{"ietf-sztp-bootstrap-server:input" : {"signed-data-preferred" : [null]}}' https://[::1]:12345/restconf/operations/ietf-sztp-bootstrap-server:get-bootstrapping-data
+curl --cacert data/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-AcmeCorp-Serial: 12345"  -d '{"ietf-sztp-bootstrap-server:input" : {"signed-data-preferred" : [null]}}' https://[::1]:12345/restconf/operations/ietf-sztp-bootstrap-server:get-bootstrapping-data
 ```
 
 Expanded request body for reference:
@@ -99,7 +200,7 @@ The trusted phase of sZTP occurs immediately after the untrusted phase (if Owner
 Full `curl` request sent to server:
 
 ```bash
-curl --cacert testdata/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-Serial: 123456"  -d '{"ietf-sztp-bootstrap-server:input" : {"hw-model" : "12345", "os-version" : "v1.0.0"}}' https://[::1]:12345/restconf/operations/ietf-sztp-bootstrap-server:get-bootstrapping-data
+curl --cacert data/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-AcmeCorp-Serial: 12345"  -d '{"ietf-sztp-bootstrap-server:input" : {"hw-model" : "12345", "os-version" : "v1.0.0"}}' https://[::1]:12345/restconf/operations/ietf-sztp-bootstrap-server:get-bootstrapping-data
 ```
 
 Expanded request body for reference:
@@ -177,7 +278,7 @@ Report progress requests are continuously sent from the switch to the server pro
 Full `curl` request sent to server:
 
 ```bash
-curl --cacert testdata/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-Serial: 123456"  -d '{"ietf-sztp-bootstrap-server:input" : {"progress-type" :"bootstrap-complete","message":"SZTP Bootstrap using server (https://[::1]:12345) successfully completed"}}' https://[::1]:12345/restconf/operations/ietf-sztp-bootstrap-server:report-progress
+curl --cacert data/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-AcmeCorp-Serial: 12345"  -d '{"ietf-sztp-bootstrap-server:input" : {"progress-type" :"bootstrap-complete","message":"SZTP Bootstrap using server (https://[::1]:12345) successfully completed"}}' https://[::1]:12345/restconf/operations/ietf-sztp-bootstrap-server:report-progress
 ```
 
 Expanded request body for reference:
@@ -203,19 +304,19 @@ The server also supports TPM enrollment and attestation. The request and respons
 Full `curl` request sent to server:
 
 ```bash
-curl --cacert testdata/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-Serial: 123456"  -d '{"deviceId" : { "deviceSerialNumber" : "123456", "deviceManufacturer" : "vendor123", "deviceModel" : "model123"}, "tssIdentityRequest" : "base64-encoded-blob", "tpmEnrollmentSessionId" : "session-id-123"}' https://[::1]:12345/tpm-enrollment:issue-aik-cert
+curl --cacert data/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-AcmeCorp-Serial: 12345"  -d '{"deviceId" : { "deviceSerialNumber" : "12345", "deviceManufacturer" : "vendor123", "deviceModel" : "model123"}, "tssIdentityRequest" : "base64-encoded-blob", "tpmEnrollmentSessionId" : "session-id-123"}' https://[::1]:12345/tpm-enrollment:issue-aik-cert
 ```
 
 Expanded request body for reference (JSON encoding of the `IssueAikCertRequest` proto defined in `proto/tpm_enrollment.proto`):
 
 ```json
 {
-  "deviceId" : { 
-    "deviceSerialNumber" : "123456", 
-    "deviceManufacturer" : "vendor123", 
+  "deviceId" : {
+    "deviceSerialNumber" : "12345",
+    "deviceManufacturer" : "vendor123",
     "deviceModel" : "model123"
-  }, 
-  "tssIdentityRequest" : "base64-encoded-blob", 
+  },
+  "tssIdentityRequest" : "base64-encoded-blob",
   "tpmEnrollmentSessionId" : "session-id-123"
 }
 ```
@@ -236,19 +337,19 @@ Full response body from the server (JSON encoding of the `IssueAikCertResponse` 
 Full `curl` request sent to server:
 
 ```bash
-curl --cacert testdata/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-Serial: 123456"  -d '{"deviceId" : { "deviceSerialNumber" : "123456", "deviceManufacturer" : "vendor123", "deviceModel" : "model123"}, "credential" : "base64-encoded-blob", "tpmEnrollmentSessionId" : "session-id-123"}' https://[::1]:12345/tpm-enrollment:verify-attestation-credential
+curl --cacert data/trustAnchorCertificate.pem -X POST -H "Content-Type: application/json" -H "X-MAC: 01:23:45:AB:CD:EF" -H "X-AcmeCorp-Serial: 12345"  -d '{"deviceId" : { "deviceSerialNumber" : "12345", "deviceManufacturer" : "vendor123", "deviceModel" : "model123"}, "credential" : "base64-encoded-blob", "tpmEnrollmentSessionId" : "session-id-123"}' https://[::1]:12345/tpm-enrollment:verify-attestation-credential
 ```
 
 Expanded request body for reference (JSON encoding of the `VerifyAttestationCredentialRequest` proto defined in `proto/tpm_enrollment.proto`):
 
 ```json
 {
-  "deviceId" : { 
-    "deviceSerialNumber" : "123456", 
-    "deviceManufacturer" : "vendor123", 
+  "deviceId" : {
+    "deviceSerialNumber" : "12345",
+    "deviceManufacturer" : "vendor123",
     "deviceModel" : "model123"
-  }, 
-  "credential" : "base64-encoded-blob", 
+  },
+  "credential" : "base64-encoded-blob",
   "tpmEnrollmentSessionId" : "session-id-123"
 }
 ```

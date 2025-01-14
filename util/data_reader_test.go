@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testdata
+package data
 
 import (
 	"crypto"
@@ -24,15 +24,24 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/open_sztp/handlers/bootstrapdata"
 	"go.mozilla.org/pkcs7"
 )
 
+func NewTestDataReader() Reader {
+	return Reader{
+		ParentDir: "_main/util/testdata",
+	}
+}
+
 func TestIsMatchingKeypair(t *testing.T) {
-	ownershipCertificate, ownershipCertificatePrivateKey, err := ReadOwnershipCertificate()
+	dataReader := NewTestDataReader()
+	ownershipCertificate, ownershipCertificatePrivateKey, err := dataReader.ReadOwnershipCertificate()
 	if err != nil {
 		t.Fatalf("Failed to parse the Ownership Certificate: %v", err)
 	}
-	trustAnchorCertificate, trustAnchorCertificatePrivateKey, err := ReadTrustAnchor()
+	trustAnchorCertificate, trustAnchorCertificatePrivateKey, err := dataReader.ReadTrustAnchor()
 	if err != nil {
 		t.Fatalf("Failed to parse the trust anchor: %v", err)
 	}
@@ -88,7 +97,8 @@ type inner struct {
 }
 
 func TestOwnershipVoucherContainsOwnershipCertificate(t *testing.T) {
-	ov, err := ReadOwnershipVoucher()
+	dataReader := NewTestDataReader()
+	ov, err := dataReader.ReadOwnershipVoucher("12345")
 	if err != nil {
 		t.Fatalf("Failed to read the Ownership Voucher: %v", err)
 	}
@@ -105,7 +115,7 @@ func TestOwnershipVoucherContainsOwnershipCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse JSON content in Ownership Voucher: %v", err)
 	}
-	ownershipCertificate, _, err := ReadOwnershipCertificate()
+	ownershipCertificate, _, err := dataReader.ReadOwnershipCertificate()
 	if err != nil {
 		t.Fatalf("Failed to read the Ownership Certificate: %v", err)
 	}
@@ -117,24 +127,34 @@ func TestOwnershipVoucherContainsOwnershipCertificate(t *testing.T) {
 	}
 }
 
-func TestReadConfig(t *testing.T) {
-	preconfigScript, bootstrapConfig, postconfigScript, err := ReadConfig()
+func TestReadOnboardingData(t *testing.T) {
+	dataReader := NewTestDataReader()
+	got, err := dataReader.ReadOnboardingData("12345")
 	if err != nil {
-		t.Fatalf("Failed to read the config: %v", err)
+		t.Fatalf("Failed to read the Onboarding Data: %v", err)
 	}
-	if string(preconfigScript) == "" {
-		t.Errorf("Pre-Config Script is empty")
+	want := bootstrapdata.OnboardingData{
+		OSName:       "VendorOS",
+		OSVersion:    "v1.0.0",
+		DownloadURIs: []string{"http://www.example.com/your/os/image/here.img"},
+		ImageVerifications: []bootstrapdata.ImageVerification{
+			bootstrapdata.ImageVerification{
+				HashAlgorithm: "ietf-sztp-conveyed-info:sha-256",
+				HashValue:     "01:23:45:67:89:ab:cd:ef",
+			},
+		},
+		PreConfigScript:  []byte("pre-config-script"),
+		Config:           []byte("bootstrap-config"),
+		PostConfigScript: []byte("post-config-script"),
 	}
-	if string(bootstrapConfig) == "" {
-		t.Errorf("Bootstrap Config is empty")
-	}
-	if string(postconfigScript) == "" {
-		t.Errorf("Post-Config Script is empty")
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("Unexpected Onboarding Data diff (-want +got):\n%s", diff)
 	}
 }
 
 func TestReadTPMResponses(t *testing.T) {
-	issueAIKCertResponse, verifyAttestationCredentialResponse, err := ReadTPMResponses()
+	dataReader := NewTestDataReader()
+	issueAIKCertResponse, verifyAttestationCredentialResponse, err := dataReader.ReadTPMResponses("12345")
 	if err != nil {
 		t.Fatalf("Failed to read the TPM responses: %v", err)
 	}

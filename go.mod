@@ -17,9 +17,9 @@ module github.com/google/open_sztp
 go 1.22.5
 
 require (
+  github.com/google/go-cmp v0.6.0
   github.com/kylelemons/godebug v1.1.0
   go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352
-  google.golang.org/protobuf v1.34.2
-  github.com/google/go-cmp v0.6.0
   golang.org/x/sys v0.24.0
+  google.golang.org/protobuf v1.34.2
 )

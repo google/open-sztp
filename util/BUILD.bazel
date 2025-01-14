@@ -29,8 +29,8 @@ go_test(
     embed = [":parser"],
     deps = [
         ":constants",
-        "@com_github_google_go_cmp//:cmp",
-        "@com_github_google_go_cmp//:cmp/cmpopts",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
     ],
 )
 
@@ -45,9 +45,39 @@ go_library(
     importpath = "github.com/google/open_sztp/util/stubdependencies",
     srcs = ["stub_dependency_provider.go"],
     deps = [
+        ":data",
         ":parser",
         "//handlers:bootstrapdata",
         "//proto:tpm_enrollment_go_proto",
         "@org_golang_x_sys//unix",
     ],
+)
+
+go_library(
+    name = "data",
+    importpath = "github.com/google/open_sztp/util/data",
+    srcs = ["data_reader.go"],
+    deps = [
+        "//handlers:bootstrapdata",
+        "//proto:tpm_enrollment_go_proto",
+        "@org_golang_google_protobuf//encoding/prototext",
+        "@rules_go//go/runfiles",
+    ],
+)
+
+go_test(
+    name = "data_test",
+    srcs = ["data_reader_test.go"],
+    data = [":testdata"],
+    embed = [":data"],
+    deps = [
+        "//handlers:bootstrapdata",
+        "@com_github_google_go_cmp//cmp",
+        "@org_mozilla_go_pkcs7//:pkcs7",
+    ],
+)
+
+filegroup(
+    name = "testdata",
+    srcs = glob(["testdata/**"]),
 )

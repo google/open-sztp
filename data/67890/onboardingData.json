@@ -1,0 +1,12 @@
+{
+  "os-name":       "VendorOS",
+  "os-version":    "v1.0.0",
+  "download-uris": ["http://www.example.com/your/os/image/here.img"],
+  "image-verifications": [
+    {
+      "hash-algorithm": "ietf-sztp-conveyed-info:sha-256",
+      "hash-value":     "01:23:45:67:89:ab:cd:ef"
+    }
+  ],
+  "config-handling":   "replace"
+}
