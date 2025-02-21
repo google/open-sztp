@@ -7,6 +7,12 @@ fi
 
 serial_number="$1"
 
+# If the device directory already exists, return early.
+if [ -d "data/$serial_number" ]; then
+  echo "Data directory for serial number $serial_number already exists."
+  exit 0
+fi
+
 # Create a new directory under data/ for the new device using data/12345 as a template.
 mkdir -p "data/$serial_number"
 cp -r data/12345/* "data/$serial_number"
@@ -20,11 +26,11 @@ runfiles_dir="bazel-bin/main_/main.runfiles/_main/data"
 if [ -d "$runfiles_dir" ]; then
   echo "Linking new files to the running server's runfiles directory."
 
-  chmod +w $(readlink "$runfiles_dir/../../MANIFEST")
+  chmod +w $(readlink -f "$runfiles_dir/../../MANIFEST")
   for file in $(ls "data/$serial_number"); do
     mkdir -p "$runfiles_dir/$serial_number"
     ln -s "data/$serial_number/$file" "$runfiles_dir/$serial_number/$file"
-    echo "_main/data/$serial_number/$file $(readlink data/$serial_number/$file)" >> $(readlink "$runfiles_dir/../../MANIFEST")
+    echo "_main/data/$serial_number/$file $(readlink -f data/$serial_number/$file)" >> $(readlink -f "$runfiles_dir/../../MANIFEST")
   done
 fi
 
