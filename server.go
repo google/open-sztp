@@ -122,9 +122,6 @@ func New(ctx context.Context, params Params) (*http.Server, net.Listener, error)
 		Handler:   BootstrapActionsHandler(params.EnableTPMEnrollment, params.DependencyProvider),
 		TLSConfig: &tls.Config{Certificates: []tls.Certificate{*serverTLSCertKeyPair}},
 		ErrorLog:  params.DependencyProvider.ErrorLogger(),
-		ConnState: func(conn net.Conn, state http.ConnState) {
-			params.DependencyProvider.LogInfof("Client connection state changed: %q. Local address: %q, Remote address: %q", state.String(), conn.LocalAddr().String(), conn.RemoteAddr().String())
-		},
 	}
 
 	l, err := params.DependencyProvider.CreateSocket(server.Addr)
