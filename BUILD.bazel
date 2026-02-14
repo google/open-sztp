@@ -14,6 +14,8 @@
 
 load("@gazelle//:def.bzl", "gazelle")
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oci_push")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 # Golang HTTP server that implements sZTP (RFC 8572) + TPM enrollment/attestation.
 package(default_visibility = [
@@ -38,13 +40,112 @@ go_library(
     ],
 )
 
+# Linux AMD64 binary
 go_binary(
-    name = "main",
+    name = "main_linux_amd64",
     srcs = ["main.go"],
-    data = glob(["data/**"]),
+    goarch = "amd64",
+    goos = "linux",
+    pure = "on",
     deps = [
         ":server",
         "//util:data",
         "//util:stubdependencies",
     ],
+)
+
+# Linux ARM64 binary
+go_binary(
+    name = "main_linux_arm64",
+    srcs = ["main.go"],
+    goarch = "arm64",
+    goos = "linux",
+    pure = "on",
+    deps = [
+        ":server",
+        "//util:data",
+        "//util:stubdependencies",
+    ],
+)
+
+# Package the data files into a tar layer (shared across architectures)
+pkg_tar(
+    name = "data_layer",
+    srcs = glob(["data/**"]),
+    package_dir = "/app/data",
+    strip_prefix = "data",
+)
+
+# AMD64 layers and image
+pkg_tar(
+    name = "app_layer_amd64",
+    srcs = [":main_linux_amd64"],
+    package_dir = "/app",
+)
+
+oci_image(
+    name = "image_amd64",
+    base = "@distroless_base_linux_amd64",
+    entrypoint = ["/app/main_linux_amd64"],
+    tars = [
+        ":app_layer_amd64",
+        ":data_layer",
+    ],
+)
+
+# ARM64 layers and image
+pkg_tar(
+    name = "app_layer_arm64",
+    srcs = [":main_linux_arm64"],
+    package_dir = "/app",
+)
+
+oci_image(
+    name = "image_arm64",
+    base = "@distroless_base_linux_arm64",
+    entrypoint = ["/app/main_linux_arm64"],
+    tars = [
+        ":app_layer_arm64",
+        ":data_layer",
+    ],
+)
+
+# Multi-platform image index
+oci_image_index(
+    name = "image",
+    images = [
+        ":image_amd64",
+        ":image_arm64",
+    ],
+)
+
+# Load AMD64 image into docker daemon
+oci_load(
+    name = "load_amd64",
+    image = ":image_amd64",
+    repo_tags = ["open-sztp:latest-amd64"],
+)
+
+# Load ARM64 image into docker daemon
+oci_load(
+    name = "load_arm64",
+    image = ":image_arm64",
+    repo_tags = ["open-sztp:latest-arm64"],
+)
+
+# Convenience alias to load the native architecture
+alias(
+    name = "load",
+    actual = select({
+        "@platforms//cpu:aarch64": ":load_arm64",
+        "@platforms//cpu:arm64": ":load_arm64",
+        "//conditions:default": ":load_amd64",
+    }),
+)
+
+# Push target for the container registry
+oci_push(
+    name = "push",
+    image = ":image",
+    repository = "gcr.io/google/open-sztp",
 )
