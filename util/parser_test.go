@@ -272,6 +272,11 @@ func TestRestconfArgsError(t *testing.T) {
 				`),
 			contentType: "application/yang-data+json",
 		},
+		{
+			name:        "body_too_large",
+			requestBody: bytes.Repeat([]byte("a"), constants.MaxRequestBodyBytes+1),
+			contentType: "application/yang-data+json",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -478,6 +483,11 @@ func TestReportProgressArgsError(t *testing.T) {
 					}
 				}`),
 			contentType: "",
+		},
+		{
+			name:        "body_too_large",
+			requestBody: bytes.Repeat([]byte("a"), constants.MaxRequestBodyBytes+1),
+			contentType: "application/yang-data+json",
 		},
 	}
 	for _, tc := range tests {

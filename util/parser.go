@@ -126,7 +126,12 @@ type DependencyProvider interface {
 // have been consumed.
 func RestconfArgs(req *http.Request, dp DependencyProvider) (RESTCONFArgs, error) {
 	requestBytes := new(bytes.Buffer)
-	requestBytes.ReadFrom(req.Body)
+	if _, err := requestBytes.ReadFrom(io.LimitReader(req.Body, constants.MaxRequestBodyBytes+1)); err != nil {
+		return RESTCONFArgs{}, fmt.Errorf("reading request body: %w", err)
+	}
+	if requestBytes.Len() > constants.MaxRequestBodyBytes {
+		return RESTCONFArgs{}, fmt.Errorf("request body exceeds %d bytes: %w", constants.MaxRequestBodyBytes, &http.MaxBytesError{Limit: constants.MaxRequestBodyBytes})
+	}
 	dp.LogInfof("HTTP request body: \n%s", requestBytes.String())
 	bytesReader := bytes.NewReader(requestBytes.Bytes())
 
@@ -159,7 +164,12 @@ type JSONReportProgressWrapper struct {
 // have been consumed.
 func ReportProgressArgs(req *http.Request, dp DependencyProvider) (*ReportProgressRequest, error) {
 	requestBytes := new(bytes.Buffer)
-	requestBytes.ReadFrom(req.Body)
+	if _, err := requestBytes.ReadFrom(io.LimitReader(req.Body, constants.MaxRequestBodyBytes+1)); err != nil {
+		return nil, fmt.Errorf("reading request body: %w", err)
+	}
+	if requestBytes.Len() > constants.MaxRequestBodyBytes {
+		return nil, fmt.Errorf("request body exceeds %d bytes: %w", constants.MaxRequestBodyBytes, &http.MaxBytesError{Limit: constants.MaxRequestBodyBytes})
+	}
 	bytesReader := bytes.NewReader(requestBytes.Bytes())
 	dp.LogInfof("Parsing report-progress request body: \n%s", requestBytes.String())
 

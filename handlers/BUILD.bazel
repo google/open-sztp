@@ -44,6 +44,7 @@ go_library(
     srcs = ["issue_aik_cert.go"],
     deps = [
         "//proto:tpm_enrollment_go_proto",
+        "//util:constants",
         "@org_golang_google_protobuf//encoding/protojson",
     ],
 )
@@ -54,6 +55,7 @@ go_library(
     srcs = ["verify_attestation_credential.go"],
     deps = [
         "//proto:tpm_enrollment_go_proto",
+        "//util:constants",
         "@org_golang_google_protobuf//encoding/protojson",
     ],
 )

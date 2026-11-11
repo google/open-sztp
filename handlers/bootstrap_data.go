@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -121,6 +122,13 @@ func (h Handler) Handle(w http.ResponseWriter, req *http.Request) {
 
 	args, err := parser.RestconfArgs(req, h.DependencyProvider)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			err = fmt.Errorf("could not parse hw-model and signed-data-preferred from request body: %w", err)
+			h.DependencyProvider.LogErrorf(err.Error())
+			http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+			return
+		}
 		respondWithError(w, h.DependencyProvider, fmt.Errorf("Could not parse hw-model and signed-data-preferred from request body: %w", err))
 		return
 	}

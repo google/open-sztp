@@ -51,23 +51,32 @@ func healthzHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "ok")
 }
 
+func withMaxBytesReader(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Body != nil {
+			req.Body = http.MaxBytesReader(w, req.Body, constants.MaxRequestBodyBytes)
+		}
+		next(w, req)
+	}
+}
+
 // BootstrapActionsHandler sets up the ServeMux for the report-progress, get-bootstrapping-data
 // and TPM enrollment calls.
 func BootstrapActionsHandler(enableTPMEnrollment bool, dependencyProvider DependencyProvider) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc(constants.ReportProgressPattern, reportprogress.Handler{
+	mux.HandleFunc(constants.ReportProgressPattern, withMaxBytesReader(reportprogress.Handler{
 		DependencyProvider: dependencyProvider,
-	}.Handle)
-	mux.HandleFunc(constants.GetBootstrappingDataPattern, bootstrapdata.Handler{
+	}.Handle))
+	mux.HandleFunc(constants.GetBootstrappingDataPattern, withMaxBytesReader(bootstrapdata.Handler{
 		DependencyProvider: dependencyProvider,
-	}.Handle)
+	}.Handle))
 	if enableTPMEnrollment {
-		mux.HandleFunc(constants.IssueAIKCertPattern, issueaikcert.Handler{
+		mux.HandleFunc(constants.IssueAIKCertPattern, withMaxBytesReader(issueaikcert.Handler{
 			DependencyProvider: dependencyProvider,
-		}.Handle)
-		mux.HandleFunc(constants.VerifyAttestationCredentialPattern, verifyattestationcredential.Handler{
+		}.Handle))
+		mux.HandleFunc(constants.VerifyAttestationCredentialPattern, withMaxBytesReader(verifyattestationcredential.Handler{
 			DependencyProvider: dependencyProvider,
-		}.Handle)
+		}.Handle))
 	}
 	mux.HandleFunc(constants.HealthzPattern, healthzHandler)
 	mux.HandleFunc(constants.NullzPattern, healthzHandler)
@@ -118,10 +127,14 @@ func New(ctx context.Context, params Params) (*http.Server, net.Listener, error)
 	}
 
 	server := &http.Server{
-		Addr:      addr,
-		Handler:   BootstrapActionsHandler(params.EnableTPMEnrollment, params.DependencyProvider),
-		TLSConfig: &tls.Config{Certificates: []tls.Certificate{*serverTLSCertKeyPair}},
-		ErrorLog:  params.DependencyProvider.ErrorLogger(),
+		Addr:              addr,
+		Handler:           BootstrapActionsHandler(params.EnableTPMEnrollment, params.DependencyProvider),
+		TLSConfig:         &tls.Config{Certificates: []tls.Certificate{*serverTLSCertKeyPair}},
+		ErrorLog:          params.DependencyProvider.ErrorLogger(),
+		ReadHeaderTimeout: constants.BootstrapServerTimeout,
+		ReadTimeout:       constants.BootstrapServerTimeout,
+		WriteTimeout:      constants.BootstrapServerTimeout,
+		IdleTimeout:       constants.BootstrapServerTimeout,
 	}
 
 	l, err := params.DependencyProvider.CreateSocket(server.Addr)

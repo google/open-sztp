@@ -19,9 +19,11 @@ package verifyattestationcredential
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/google/open_sztp/util/constants"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	tepb "github.com/google/open_sztp/proto/tpm_enrollment_go_proto"
@@ -48,8 +50,17 @@ func respondWithError(w http.ResponseWriter, dp DependencyProvider, code int, er
 // Handle handles the verify-attestation-credential request.
 func (h Handler) Handle(w http.ResponseWriter, req *http.Request) {
 	// Read the request.
+	req.Body = http.MaxBytesReader(w, req.Body, constants.MaxRequestBodyBytes)
 	requestBytes := new(bytes.Buffer)
-	requestBytes.ReadFrom(req.Body)
+	if _, err := requestBytes.ReadFrom(req.Body); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			respondWithError(w, h.DependencyProvider, http.StatusRequestEntityTooLarge, fmt.Errorf("request body too large: %w", err))
+			return
+		}
+		respondWithError(w, h.DependencyProvider, http.StatusBadRequest, fmt.Errorf("reading request body: %w", err))
+		return
+	}
 	h.DependencyProvider.LogInfof("verify-attestation-credential received request=%q", requestBytes.String())
 
 	// Convert request from json to proto.

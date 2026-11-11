@@ -22,6 +22,8 @@ import (
 const (
 	// BootstrapServerTimeout is the timeout of the Bootstrap Server.
 	BootstrapServerTimeout = 60 * time.Second
+	// MaxRequestBodyBytes is the maximum allowed HTTP request body size (1 MiB).
+	MaxRequestBodyBytes = 1 << 20
 	// BootstrapServerXMLNamespace is the XML namespace of the Bootstrap Server.
 	BootstrapServerXMLNamespace = "urn:ietf:params:xml:ns:yang:ietf-sztp-bootstrap-server"
 	// UnknownHardwareModel is the default hardware model if one cannot be parsed.

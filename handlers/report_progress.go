@@ -18,6 +18,7 @@ package reportprogress
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -50,6 +51,11 @@ func (h Handler) Handle(w http.ResponseWriter, req *http.Request) {
 
 	reqParams, err := parser.ReportProgressArgs(req, h.DependencyProvider)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			respondWithError(w, h.DependencyProvider, http.StatusRequestEntityTooLarge, fmt.Errorf("unable to parse report-progress parameters: %w", err))
+			return
+		}
 		respondWithError(w, h.DependencyProvider, http.StatusBadRequest, fmt.Errorf("Unable to parse report-progress parameters: %w", err))
 		return
 	}
